@@ -3,7 +3,7 @@
 #endif
 #define _discordWebhookAPI_included_
 
-#define DiscordWebhookAPI_VERSION       "1.0.1"
+#define DiscordWebhookAPI_VERSION       "1.1.0"
 #define WEBHOOK_MSG_MAX_SIZE            2000
 #define WEBHOOK_URL_MAX_SIZE            1000
 #define WEBHOOK_THREAD_NAME_MAX_SIZE    100
@@ -617,8 +617,8 @@ methodmap Embed < JSONObject
    */
   public bool SetTimeStampNow()
   {
-    char timeNow[256];
-    FormatTime(timeNow, sizeof timeNow, "%FT\%T.000%z", GetTime());
+    char timeNow[64];
+    FormatTime(timeNow, sizeof timeNow, "%Y-%m-%dT%H:%M:%S%z", GetTime());
     return this.SetString("timestamp", timeNow);
   }
 
@@ -650,6 +650,10 @@ methodmap Embed < JSONObject
    */
   public EmbedFooter GetFooter()
   {
+    if (!this.HasKey("footer"))
+    {
+      return null;
+    }
     return view_as<EmbedFooter>(this.Get("footer"));
   }
 
@@ -671,6 +675,10 @@ methodmap Embed < JSONObject
    */
   public EmbedImage GetImage()
   {
+    if (!this.HasKey("image"))
+    {
+      return null;
+    }
     return view_as<EmbedImage>(this.Get("image"));
   }
 
@@ -692,6 +700,10 @@ methodmap Embed < JSONObject
    */
   public EmbedThumbnail GetThumbnail()
   {
+    if (!this.HasKey("thumbnail"))
+    {
+      return null;
+    }
     return view_as<EmbedThumbnail>(this.Get("thumbnail"));
   }
 
@@ -713,6 +725,10 @@ methodmap Embed < JSONObject
    */
   public EmbedVideo GetVideo()
   {
+    if (!this.HasKey("video"))
+    {
+      return null;
+    }
     return view_as<EmbedVideo>(this.Get("video"));
   }
 
@@ -734,6 +750,10 @@ methodmap Embed < JSONObject
    */
   public EmbedProvider GetProvider()
   {
+    if (!this.HasKey("provider"))
+    {
+      return null;
+    }
     return view_as<EmbedProvider>(this.Get("provider"));
   }
 
@@ -755,6 +775,10 @@ methodmap Embed < JSONObject
    */
   public EmbedAuthor GetAuthor()
   {
+    if (!this.HasKey("author"))
+    {
+      return null;
+    }
     return view_as<EmbedAuthor>(this.Get("author"));
   }
 
@@ -776,22 +800,33 @@ methodmap Embed < JSONObject
    */
   public JSONArray GetFields()
   {
+    if (!this.HasKey("fields"))
+    {
+      return null;
+    }
     return view_as<JSONArray>(this.Get("fields"));
   }
 
   /**
    * Retrieve a field of the embed.
-   * 
-   * @return    Field corresponding to the input index. null if an error occurs.
+   *
+   * @param index    Index of the field to retrieve.
+   * @return         Field corresponding to the input index. null if the index is out of bounds.
    */
   public EmbedField GetField(int index)
   {
-    JSONArray fields = view_as<JSONArray>(this.Get("fields"));
-    if(fields != null && fields.Length < index)
+    if (!this.HasKey("fields"))
     {
-      return view_as<EmbedField>(fields.Get(index));
+      return null;
     }
-    return null;
+    JSONArray fields = view_as<JSONArray>(this.Get("fields"));
+    EmbedField field = null;
+    if (fields != null && index >= 0 && index < fields.Length)
+    {
+      field = view_as<EmbedField>(fields.Get(index));
+    }
+    delete fields;
+    return field;
   }
 
   /**
@@ -811,15 +846,14 @@ methodmap Embed < JSONObject
     {
       fields = new JSONArray();
     }
-    if(fields.Push(view_as<JSON>(field)))
+    int count = -1;
+    if(fields.Push(view_as<JSON>(field)) && this.Set("fields", fields))
     {
-      if(this.Set("fields", fields))
-      {
-        delete field;
-        return fields.Length;
-      }
+      count = fields.Length;
     }
-    return -1;
+    delete field;
+    delete fields;
+    return count;
   }
 }
 
@@ -827,12 +861,12 @@ methodmap Embed < JSONObject
 methodmap Webhook < JSONObject
 {
   /**
-   * Constructor for the Embed methodmap.
-   * 
+   * Constructor for the Webhook methodmap.
+   *
    * @param content    Content of the webhook.
-   * @return           Returns the Embed.
+   * @return           Returns the Webhook.
    */
-  public Webhook(const char[] content="") 
+  public Webhook(const char[] content="")
   {
     JSONObject jsonObject = new JSONObject();
     jsonObject.SetString("content", content);
@@ -887,13 +921,27 @@ methodmap Webhook < JSONObject
 
   /**
    * Set the Thread Name of the webhook.
-   * 
-   * @param threadName    Thread Name of the webhook. (char max is 1000)
+   * When set, executing the webhook on a forum channel creates a new thread with this name.
+   * Note: Discord limits thread names to WEBHOOK_THREAD_NAME_MAX_SIZE (100) characters.
+   *
+   * @param threadName    Thread Name of the webhook.
    * @return              True on success. False otherwise.
    */
-  public bool SetThreadName(char[] threadName)
+  public bool SetThreadName(const char[] threadName)
   {
     return this.SetString("thread_name", threadName);
+  }
+
+  /**
+   * Retrieve the thread name of the webhook.
+   *
+   * @param buffer       String buffer to store value.
+   * @param maxlength    Maximum length of the string buffer.
+   * @return             True on success. False otherwise.
+   */
+  public bool GetThreadName(char[] buffer, int maxlength)
+  {
+    return this.GetString("thread_name", buffer, maxlength);
   }
 
   /**
@@ -947,27 +995,38 @@ methodmap Webhook < JSONObject
    */
   public JSONArray GetEmbeds()
   {
+    if (!this.HasKey("embeds"))
+    {
+      return null;
+    }
     return view_as<JSONArray>(this.Get("embeds"));
   }
 
   /**
    * Retrieve an embed of the webook from its index.
-   * 
-   * @return    Embed corresponding to the input index. null if an error occurs.
+   *
+   * @param index    Index of the embed to retrieve.
+   * @return         Embed corresponding to the input index. null if the index is out of bounds.
    */
   public Embed GetEmbed(int index)
   {
-    JSONArray embeds = view_as<JSONArray>(this.Get("embeds"));
-    if(embeds != null && embeds.Length < index)
+    if (!this.HasKey("embeds"))
     {
-      return view_as<Embed>(embeds.Get(index));
+      return null;
     }
-    return null;
+    JSONArray embeds = view_as<JSONArray>(this.Get("embeds"));
+    Embed embed = null;
+    if(embeds != null && index >= 0 && index < embeds.Length)
+    {
+      embed = view_as<Embed>(embeds.Get(index));
+    }
+    delete embeds;
+    return embed;
   }
 
   /**
    * Add an embed to the webhook. This will delete the handle to the embed.
-   * 
+   *
    * @param embed    Embed to add to the webhook.
    * @return         The number of embeds after the new one was added. -1 otherwise.
    */
@@ -982,15 +1041,14 @@ methodmap Webhook < JSONObject
     {
       embeds = new JSONArray();
     }
-    if(embeds.Push(view_as<JSON>(embed)))
+    int count = -1;
+    if(embeds.Push(view_as<JSON>(embed)) && this.Set("embeds", embeds))
     {
-      if(this.Set("embeds", embeds))
-      {
-        delete embed;
-        return embeds.Length;
-      }
+      count = embeds.Length;
     }
-    return -1;
+    delete embed;
+    delete embeds;
+    return count;
   }
 
   /**
@@ -1003,17 +1061,18 @@ methodmap Webhook < JSONObject
    */
   public void Execute(const char[] webhook, HTTPRequestCallback callback, any data = 0, const char[] threadID = "")
   {
-    char webhook_query[1024];
-    if (!threadID[0])
+    char webhook_query[WEBHOOK_URL_MAX_SIZE + 64];
+    // Discord rejects a request that carries both thread_name (body) and thread_id (query).
+    if (!threadID[0] || this.HasKey("thread_name"))
         Format(webhook_query, sizeof webhook_query, "%s?wait=true", webhook);
     else
-        Format(webhook_query, sizeof webhook_query, "%s?thread_id=%s&?wait=true", webhook, threadID);
+        Format(webhook_query, sizeof webhook_query, "%s?thread_id=%s&wait=true", webhook, threadID);
 
     HTTPRequest httpRequest = new HTTPRequest(webhook_query);
     #if defined DEBUG
-      char debug[9999];
-      this.toString(debug, sizeof debug);
-      PrintToServer(debug);
+      char debug[4096];
+      this.ToString(debug, sizeof debug);
+      PrintToServer("%s", debug);
     #endif
     httpRequest.Post(view_as<JSON>(this), callback, data);
   }
@@ -1028,7 +1087,7 @@ methodmap Webhook < JSONObject
    */
   public void Edit(const char[] webhook, const char[] messageId, HTTPRequestCallback callback, any data = 0)
   {
-    char webhook_patch[1024];
+    char webhook_patch[WEBHOOK_URL_MAX_SIZE + 64];
     Format(webhook_patch, sizeof webhook_patch, "%s/messages/%s", webhook, messageId);
     HTTPRequest httpRequest = new HTTPRequest(webhook_patch);
     httpRequest.Patch(view_as<JSON>(this), callback, data);

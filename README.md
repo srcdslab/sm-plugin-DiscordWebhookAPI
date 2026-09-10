@@ -50,13 +50,15 @@ Contrary to other includes, discordWebhookAPI:
 public Action SendDiscordWebhook(int client, int args)
 {
 	Webhook webhook = new Webhook("This is the content of the webhook.");
-	webhook.Execute("https://discordapp.com/api/webhooks/6758765876/769876789009/", OnWebHookExecuted);
+	webhook.Execute("https://discord.com/api/webhooks/6758765876/769876789009", OnWebHookExecuted);
+	delete webhook;
 	return Plugin_Continue;
 }
 
-public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
+public void OnWebHookExecuted(HTTPResponse response, any data)
 {
-	if (response.Status == HTTPStatus_NoContent)
+	// Execute() always appends ?wait=true, so Discord answers 200 OK with the message body.
+	if (response.Status == HTTPStatus_OK)
 	{
 		PrintToServer("Webhook sent successfully!");
 	}

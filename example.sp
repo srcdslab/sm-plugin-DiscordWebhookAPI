@@ -157,8 +157,9 @@ Action SendDiscordWebhook(int client, int args)
 public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
 {
   int client = pack.ReadCell();
+  delete pack;
 
-  PrintToServer("Processed client n°%s's webhook, status %d", client, response.Status);
+  PrintToServer("Processed client n°%d's webhook, status %d", client, response.Status);
   if (response.Status != HTTPStatus_OK)
   {
     PrintToServer("An error has occured while sending the webhook.");
@@ -167,10 +168,11 @@ public void OnWebHookExecuted(HTTPResponse response, DataPack pack)
   PrintToServer("The webhook has been sent successfuly.");
 
   // Retrieve the message's id.
+  // Note: response.Data is owned by the extension, do not delete it.
   JSONObject resData = view_as<JSONObject>(response.Data);
   char messageId[64];
   resData.GetString("id", messageId, sizeof messageId);
-  PrintToServer(messageId);
+  PrintToServer("%s", messageId);
   editWebhook(messageId, client);
 }
 
@@ -205,8 +207,9 @@ void editWebhook(const char[] messageId, int client)
 void OnWebHookEdited(HTTPResponse response, DataPack pack)
 {
   int client = pack.ReadCell();
+  delete pack;
 
-  PrintToServer("Edited client n°%s's webhook, status %d", client, response.Status);
+  PrintToServer("Edited client n°%d's webhook, status %d", client, response.Status);
   if (response.Status != HTTPStatus_OK)
   {
     PrintToServer("An error has occured while editing the webhook.");
