@@ -3,12 +3,62 @@
 #endif
 #define _discordWebhookAPI_included_
 
-#define DiscordWebhookAPI_VERSION       "1.1.0"
+#define DiscordWebhookAPI_VERSION       "1.2.0"
 #define WEBHOOK_MSG_MAX_SIZE            2000
 #define WEBHOOK_URL_MAX_SIZE            1000
 #define WEBHOOK_THREAD_NAME_MAX_SIZE    100
 
+/**
+ * Discord API version used for webhook requests.
+ * Define it before including this file to override it, or set it to 0 to send URLs unchanged.
+ */
+#if !defined DISCORD_API_VERSION
+  #define DISCORD_API_VERSION           10
+#endif
+
 #include <ripext>
+
+/**
+ * Returns whether url[pos - strlen(host)..pos) is `host`, either as the full host
+ * or as a subdomain of it (e.g. ptb.discord.com).
+ */
+stock bool DiscordWebhook_HostEndsWith(const char[] url, int pos, const char[] host)
+{
+  int len = strlen(host);
+  if (pos < len || strncmp(url[pos - len], host, len, false) != 0)
+    return false;
+  return pos == len || url[pos - len - 1] == '/' || url[pos - len - 1] == '.';
+}
+
+/**
+ * Pin a Discord webhook URL to DISCORD_API_VERSION.
+ * Unversioned Discord URLs (`https://discord.com/api/webhooks/...`) are routed by Discord
+ * to its deprecated default version, so `/v<DISCORD_API_VERSION>` is inserted after `/api`.
+ * URLs that already carry a version or do not point to a Discord host are copied unchanged.
+ *
+ * @param url          Webhook URL.
+ * @param buffer       String buffer to store the normalized URL.
+ * @param maxlength    Maximum length of the string buffer.
+ * @return             True if the URL was rewritten. False otherwise.
+ */
+stock bool DiscordWebhook_NormalizeURL(const char[] url, char[] buffer, int maxlength)
+{
+#if DISCORD_API_VERSION > 0
+  int pos = StrContains(url, "/api/webhooks/", false);
+  if (pos != -1
+    && (DiscordWebhook_HostEndsWith(url, pos, "discord.com")
+      || DiscordWebhook_HostEndsWith(url, pos, "discordapp.com")))
+  {
+    // Keep everything up to and including "/api"; strcopy copies (size - 1) characters.
+    char base[WEBHOOK_URL_MAX_SIZE];
+    strcopy(base, pos + 5 < sizeof base ? pos + 5 : sizeof base, url);
+    Format(buffer, maxlength, "%s/v%d%s", base, DISCORD_API_VERSION, url[pos + 4]);
+    return true;
+  }
+#endif
+  strcopy(buffer, maxlength, url);
+  return false;
+}
 
 methodmap EmbedFooter < JSONObject
 {
@@ -1055,18 +1105,22 @@ methodmap Webhook < JSONObject
    * Execute the webhook.
    * 
    * @param webhook       URL of the webhook. MAKE SURE THERE IS NO TRAILING `/`.
+   *                      Discord URLs are pinned to DISCORD_API_VERSION (see DiscordWebhook_NormalizeURL).
    * @param callback      Callback function called when the HTTP request has been processed.
    * @param data          Optional value to pass to the callback function.
    * @param threadID      Optional Thread ID for push the message in a specific thread.
    */
   public void Execute(const char[] webhook, HTTPRequestCallback callback, any data = 0, const char[] threadID = "")
   {
-    char webhook_query[WEBHOOK_URL_MAX_SIZE + 64];
+    char url[WEBHOOK_URL_MAX_SIZE + 16];
+    DiscordWebhook_NormalizeURL(webhook, url, sizeof url);
+
+    char webhook_query[WEBHOOK_URL_MAX_SIZE + 80];
     // Discord rejects a request that carries both thread_name (body) and thread_id (query).
     if (!threadID[0] || this.HasKey("thread_name"))
-        Format(webhook_query, sizeof webhook_query, "%s?wait=true", webhook);
+        Format(webhook_query, sizeof webhook_query, "%s?wait=true", url);
     else
-        Format(webhook_query, sizeof webhook_query, "%s?thread_id=%s&wait=true", webhook, threadID);
+        Format(webhook_query, sizeof webhook_query, "%s?thread_id=%s&wait=true", url, threadID);
 
     HTTPRequest httpRequest = new HTTPRequest(webhook_query);
     #if defined DEBUG
@@ -1081,14 +1135,18 @@ methodmap Webhook < JSONObject
    * Edit a previously sent webhook, knowing its messageId.
    * 
    * @param webhook      URL of the webhook.
+   *                     Discord URLs are pinned to DISCORD_API_VERSION (see DiscordWebhook_NormalizeURL).
    * @param messageId    ID of the message to edit.
    * @param callback     Callback function called when the HTTP request has been processed.
    * @param data         Optional value to pass to the callback function.
    */
   public void Edit(const char[] webhook, const char[] messageId, HTTPRequestCallback callback, any data = 0)
   {
-    char webhook_patch[WEBHOOK_URL_MAX_SIZE + 64];
-    Format(webhook_patch, sizeof webhook_patch, "%s/messages/%s", webhook, messageId);
+    char url[WEBHOOK_URL_MAX_SIZE + 16];
+    DiscordWebhook_NormalizeURL(webhook, url, sizeof url);
+
+    char webhook_patch[WEBHOOK_URL_MAX_SIZE + 80];
+    Format(webhook_patch, sizeof webhook_patch, "%s/messages/%s", url, messageId);
     HTTPRequest httpRequest = new HTTPRequest(webhook_patch);
     httpRequest.Patch(view_as<JSON>(this), callback, data);
   }
