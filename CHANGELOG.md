@@ -1,5 +1,20 @@
 ## Release Notes
 
+## [1.2.0]
+
+### Changed
+
+- `Webhook.Execute()` and `Webhook.Edit()` now pin unversioned Discord webhook URLs
+  (`https://discord.com/api/webhooks/...`) to Discord API v10, instead of relying on
+  Discord's deprecated default version (v6). URLs that already carry a version, or that
+  do not point to a Discord host, are left unchanged.
+
+### Added
+
+- `DISCORD_API_VERSION` define (default `10`). Define it before including the file to
+  target another version, or set it to `0` to disable the rewrite.
+- `DiscordWebhook_NormalizeURL()` stock to apply the same normalization manually.
+
 ## [1.1.0]
 
 ### Fixed

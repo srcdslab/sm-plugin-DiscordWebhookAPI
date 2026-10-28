@@ -65,6 +65,18 @@ public void OnWebHookExecuted(HTTPResponse response, any data)
 }
 ```
 
+### Discord API version
+
+Webhook URLs copied from Discord are unversioned (`https://discord.com/api/webhooks/...`), which makes Discord fall back to its deprecated default API version.
+`Execute()` and `Edit()` therefore pin Discord URLs to API **v10** (`https://discord.com/api/v10/webhooks/...`). URLs that already contain a version, or that do not point to a Discord host, are sent unchanged.
+
+To use another version, define it before the include (`0` disables the rewrite):
+
+```cpp
+#define DISCORD_API_VERSION 9
+#include <discordWebhookAPI>
+```
+
 ## Example
 
 ![Example-send](https://github.com/Sarrus1/discordWebhookAPI/blob/master/example.png?raw=true)
